@@ -5,6 +5,14 @@
 </p>
 
 <p align="center">
+  <a href="https://denisbless.github.io/BridgeMatchingSampler/"><strong>🌐 Project Page</strong></a>
+  &nbsp;·&nbsp;
+  <a href="docs/bms_paper.pdf"><strong>📄 Paper</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/DenisBless/BridgeMatchingSampler"><strong>💻 Code</strong></a>
+</p>
+
+<p align="center">
   <img src="assets/bms_illustration.png" alt="Bridge Matching Sampler" width="100%">
 </p>
 
@@ -16,7 +24,9 @@ matching objective, and a *damped* fixed-point iteration that mitigates mode
 collapse and further stabilizes training.
 
 📄 **Paper:** [Bridge Matching Sampler: Scalable Sampling via Generalized
-Fixed-Point Diffusion Matching](docs/bms_paper.pdf) (ICML 2026).
+Fixed-Point Diffusion Matching](docs/bms_paper.pdf) (ICML 2026).<br>
+🌐 **Project page:** <https://denisbless.github.io/BridgeMatchingSampler/> — overview,
+method walkthrough, and an interactive demo of the fixed-point iteration.
 
 ## Method in a nutshell
 
