@@ -110,6 +110,15 @@ def main(cfg: DictConfig) -> None:
             output_file=str(out_dir / "samples.pdb"),
         )
 
+    if cfg.get("evaluator", None) is not None:
+        potential = hydra.utils.instantiate(cfg.potential)
+        evaluator = hydra.utils.instantiate(cfg.evaluator, energy=potential)
+        metrics = evaluator(samples)
+        print("Evaluation metrics:")
+        for key, value in metrics.items():
+            print(f"  {key}: {value:.5f}")
+        return
+
     # Evaluate against boltzkit reference data.
     system: MolecularBoltzmann = hydra.utils.instantiate(
         cfg.potential.potentials[0].system

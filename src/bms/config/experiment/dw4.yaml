@@ -1,0 +1,95 @@
+# @package _global_
+# Bridge Matching Sampler on DW-4 (4 particles in 2D, d = 8).
+defaults:
+  - /model: egnn
+
+name: dw4
+num_atoms: 4
+spatial_dim: 2
+mean_free: true
+temperature: 1.0
+damping: 0.0
+compile: false
+
+controller:
+  _target_: bms.model.controller.ClippedModel
+  base_model: ${model}
+  subtract_mean: true
+  clip_value: null
+
+controller_optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1e-4
+  weight_decay: 0.0
+
+gradient_clip_val: 100.0
+ema_decay: null
+ema_start_step: 0
+prev_model_interval_epoch: 25
+skip_scheduler_steps: 0
+controller_scheduler:
+  _target_: bms.utils.training.CosineAnnealingWithWarmupScheduler
+  curriculum:
+    _target_: bms.utils.training.TrainingCurriculum
+    curriculum: ${curriculum}
+  task_name: bridge_matching
+  steps_per_epoch: ${steps_per_epoch}
+  warmup_epochs: 50
+  eta_min: 1e-5
+
+buffer:
+  _target_: bms.data.buffer.ReplayBuffer
+  max_size: 10000
+  filter_nan: true
+
+initial_buffer_samples: 512
+buffer_samples_per_epoch: 512
+log_buffer_energy: true
+log_buffer_grad_norm: true
+
+source:
+  _target_: bms.process.source.GaussianSource
+  num_atoms: ${num_atoms}
+  spatial_dim: ${spatial_dim}
+  center: ${mean_free}
+  scale: 2.0
+
+base_sde:
+  _target_: bms.process.sde.VESDE
+  sigma_min: 0.001
+  sigma_max: 1.5
+
+integrator:
+  _target_: bms.process.integrator.EulerMaruyamaIntegrator
+  timesteps:
+    _target_: bms.process.integrator.get_timesteps
+    t0: 0.0
+    t1: 1.0
+    steps: 200
+    rescale_t: null
+
+potential:
+  _target_: bms.potential.double_well_energy.DoubleWellPotential
+  n_particles: ${num_atoms}
+  spatial_dim: ${spatial_dim}
+
+terminal_cost:
+  _target_: bms.process.terminal_cost.BMSTerminalCost
+  temperature: ${temperature}
+  unitless: true
+  grad_clip_val: 100.0
+
+annealer:
+  _target_: bms.process.annealer.TemperatureAnnealer
+  epochs: [0, 500]
+  temperatures: [1.0, 1.0]
+
+evaluator:
+  _target_: bms.eval.nbody.NBodyEvaluator
+  ref_samples_path: data/test_split_DW4.npy
+
+train_batch_size: 512
+inference_batch_size: 512
+steps_per_epoch: 100
+curriculum:
+  - bridge_matching: 5000

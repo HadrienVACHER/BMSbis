@@ -39,8 +39,6 @@ from boltzkit.evaluation.molecular_eval import (
     TicaEval,
     TorsionMarginalEval,
 )
-from boltzkit.targets.boltzmann import MolecularBoltzmann
-
 from bms.process.sde import ControlledSDE
 from bms.utils.topology import save_data_to_pdb
 from bms.utils.training import EMA, TrainingCurriculum
@@ -96,7 +94,14 @@ class BMSTrainer:
                 cfg.terminal_cost, potential=self.potential
             )
             self.annealer = hydra.utils.instantiate(cfg.annealer)
-            self.target_system: MolecularBoltzmann = self.potential.potentials[0].system
+            self.target_system = None
+            self.nbody_evaluator = None
+            if cfg.get("evaluator", None) is not None:
+                self.nbody_evaluator = hydra.utils.instantiate(
+                    cfg.evaluator, energy=self.potential
+                )
+            else:
+                self.target_system = self.potential.potentials[0].system
 
         self.curriculum = TrainingCurriculum(
             curriculum=cfg.curriculum, valid_tasks=self.TASKS
@@ -115,19 +120,19 @@ class BMSTrainer:
                 optimizer=self.controller_optimizer,
             )
 
-        # boltzkit reference data and evaluation pipeline.
-        self.val_data = self.target_system.load_dataset(
-            T=self.cfg.temperature, type="val"
-        ).get_samples()
-        self.eval_pipeline = [EnergyHistEval()]
-        topology = self.target_system.get_mdtraj_topology()
-        self.eval_pipeline.append(TorsionMarginalEval(topology))
-        self.eval_pipeline.append(
-            TicaEval(topology, self.target_system.get_tica_model())
-        )
-        self.eval_pipeline.append(
-            DihedralAngleEval(topology, self.target_system.get_z_matrix())
-        )
+        if self.target_system is not None:
+            self.val_data = self.target_system.load_dataset(
+                T=self.cfg.temperature, type="val"
+            ).get_samples()
+            self.eval_pipeline = [EnergyHistEval()]
+            topology = self.target_system.get_mdtraj_topology()
+            self.eval_pipeline.append(TorsionMarginalEval(topology))
+            self.eval_pipeline.append(
+                TicaEval(topology, self.target_system.get_tica_model())
+            )
+            self.eval_pipeline.append(
+                DihedralAngleEval(topology, self.target_system.get_z_matrix())
+            )
 
     ############################################################################
     # Training loop
@@ -438,6 +443,24 @@ class BMSTrainer:
 
     @torch.no_grad()
     def eval(self):
+        if self.nbody_evaluator is not None:
+            local_positions = []
+            for batch in self.buffer.storage.get("data_1", []):
+                local_positions.append(batch.to(self.fabric.device))
+            if not local_positions:
+                return
+            local_tensor = torch.cat(local_positions, dim=0)
+            gathered = self.fabric.all_gather(local_tensor)
+            if self.fabric.global_rank != 0:
+                return
+            n_atoms = self.cfg.num_atoms
+            spatial_dim = self.cfg.spatial_dim
+            pos = gathered.reshape(-1, n_atoms, spatial_dim)
+            pos = pos[: min(pos.shape[0], 256)]
+            metrics = self.nbody_evaluator(pos)
+            self.fabric.log_dict(metrics, step=self.global_step)
+            return
+
         n_atoms = self.target_system.n_atoms
 
         local_positions = []

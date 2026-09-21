@@ -21,6 +21,7 @@ class GaussianSource(nn.Module):
         composition: str | None = None,
         scale: float = 1.0,
         center: bool = True,
+        spatial_dim: int = 3,
     ):
         super().__init__()
         if not ((num_atoms is None) ^ (composition is None)):
@@ -31,23 +32,21 @@ class GaussianSource(nn.Module):
             num_atoms = len(atomic_numbers)
 
         self.num_atoms = num_atoms
+        self.spatial_dim = spatial_dim
         self.center = center
         self.register_buffer("scale", torch.tensor(scale, dtype=torch.float))
 
     def sample(self, batch_size: int) -> torch.Tensor:
-        """Sample a batch of positions of shape ``(B, N, 3)``."""
         pos = torch.randn(
             batch_size,
             self.num_atoms,
-            3,
+            self.spatial_dim,   # was hardcoded 3
             dtype=torch.float,
             device=self.scale.device,
         )
         pos = pos * self.scale
-
         if self.center:
             pos = subtract_mean(pos)
             if not is_mean_free(pos):
                 raise ValueError("Sampled data is not perfectly mean-free.")
-
         return pos

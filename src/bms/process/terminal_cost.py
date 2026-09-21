@@ -38,13 +38,16 @@ class PotentialGradientMixin:
         potential: BasePotential,
         temperature: float,
         grad_clip_val: float | None = None,
+        unitless: bool = False,
     ):
         self.potential = potential
         self.potential.eval()
         self.grad_clip_val = grad_clip_val
         self.temperature = temperature
-        # Precompute the thermal scale (k_B T) in eV.
-        self.thermal_energy = units.kB * temperature
+        if unitless:
+            self.thermal_energy = 1.0
+        else:
+            self.thermal_energy = units.kB * temperature
 
     @torch.no_grad()
     def potential_grad(
@@ -80,9 +83,12 @@ class BMSTerminalCost(BaseTerminalCost, PotentialGradientMixin):
         potential: BasePotential,
         temperature: float,
         grad_clip_val: float | None = None,
+        unitless: bool = False,
     ):
         BaseTerminalCost.__init__(self)
-        PotentialGradientMixin.__init__(self, potential, temperature, grad_clip_val)
+        PotentialGradientMixin.__init__(
+            self, potential, temperature, grad_clip_val, unitless=unitless
+        )
 
     @torch.no_grad()
     def forward(
