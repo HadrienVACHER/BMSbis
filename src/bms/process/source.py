@@ -8,7 +8,6 @@
 import torch
 import torch.nn as nn
 
-from bms.utils.composition import composition_to_atomic_numbers
 from bms.utils.geometry import is_mean_free, subtract_mean
 
 
@@ -28,6 +27,8 @@ class GaussianSource(nn.Module):
             raise ValueError("Exactly one of num_atoms or composition must be provided.")
 
         if composition is not None:
+            from bms.utils.composition import composition_to_atomic_numbers
+
             atomic_numbers = composition_to_atomic_numbers(composition)
             num_atoms = len(atomic_numbers)
 

@@ -11,7 +11,6 @@ the (thermally scaled) potential energy, i.e. ``grad U / (k_B T)``.
 
 from abc import ABC, abstractmethod
 
-import ase.units as units
 import torch
 import torch.nn as nn
 
@@ -47,6 +46,8 @@ class PotentialGradientMixin:
         if unitless:
             self.thermal_energy = 1.0
         else:
+            import ase.units as units
+
             self.thermal_energy = units.kB * temperature
 
     @torch.no_grad()

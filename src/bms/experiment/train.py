@@ -32,16 +32,25 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
-from boltzkit.evaluation import EvalData, run_eval
-from boltzkit.evaluation.eval import EnergyHistEval, make_wandb_compatible
-from boltzkit.evaluation.molecular_eval import (
-    DihedralAngleEval,
-    TicaEval,
-    TorsionMarginalEval,
-)
 from bms.process.sde import ControlledSDE
-from bms.utils.topology import save_data_to_pdb
 from bms.utils.training import EMA, TrainingCurriculum
+
+try:
+    from boltzkit.evaluation import EvalData, run_eval
+    from boltzkit.evaluation.eval import EnergyHistEval, make_wandb_compatible
+    from boltzkit.evaluation.molecular_eval import (
+        DihedralAngleEval,
+        TicaEval,
+        TorsionMarginalEval,
+    )
+except ImportError:
+    EvalData = None
+    run_eval = None
+    EnergyHistEval = None
+    make_wandb_compatible = None
+    DihedralAngleEval = None
+    TicaEval = None
+    TorsionMarginalEval = None
 
 
 class BMSTrainer:
@@ -121,6 +130,10 @@ class BMSTrainer:
             )
 
         if self.target_system is not None:
+            if EnergyHistEval is None:
+                raise ImportError(
+                    "boltzkit is required for molecular evaluation; install with pip install -e ."
+                )
             self.val_data = self.target_system.load_dataset(
                 T=self.cfg.temperature, type="val"
             ).get_samples()
@@ -263,6 +276,8 @@ class BMSTrainer:
         sample_directory = Path(self.cfg.sample_directory)
         sample_directory.mkdir(parents=True, exist_ok=True)
         if hasattr(self.cfg, "topology_pdb_file"):
+            from bms.utils.topology import save_data_to_pdb
+
             filename = sample_directory / f"epoch_{self.current_epoch:04d}.pdb"
             save_data_to_pdb(
                 data=data.detach().cpu().numpy(),

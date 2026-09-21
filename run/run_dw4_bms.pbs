@@ -13,4 +13,20 @@ module load anaconda/2025
 eval "$(/usr/local/anaconda2025/bin/conda shell.bash hook)"
 conda activate BMS
 
+# src-layout package; the BMS env does not install this repo.
+export PYTHONPATH="${PBS_O_WORKDIR}/src${PYTHONPATH:+:$PYTHONPATH}"
+
+# Trainer extras not present in the adjoint_samplers BMS environment.yml.
+python - <<'PY'
+import importlib, subprocess, sys
+missing = []
+for mod, pkg in (("lightning", "lightning"), ("tqdm", "tqdm")):
+    try:
+        importlib.import_module(mod)
+    except ImportError:
+        missing.append(pkg)
+if missing:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
+PY
+
 python -u -m bms.experiment.train experiment=dw4 seed=0
