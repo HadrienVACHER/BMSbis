@@ -11,6 +11,11 @@ temperature: 1.0
 damping: 0.0
 compile: false
 
+# EGNN dynamics discards node embeddings (last GCL node MLP + embedding_out),
+# so DDP must allow unused parameters even on a single GPU.
+fabric:
+  strategy: ddp_find_unused_parameters_true
+
 controller:
   _target_: bms.model.controller.ClippedModel
   base_model: ${model}
